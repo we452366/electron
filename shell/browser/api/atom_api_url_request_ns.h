@@ -13,11 +13,12 @@
 #include "gin/arguments.h"
 #include "gin/dictionary.h"
 #include "mojo/public/cpp/system/data_pipe_producer.h"
+#include "native_mate/wrappable.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/cpp/simple_url_loader_stream_consumer.h"
 #include "services/network/public/mojom/data_pipe_getter.mojom.h"
-#include "shell/browser/api/event_emitter_deprecated.h"
+#include "shell/common/gin_helper/event_emitter.h"
 
 namespace electron {
 
@@ -25,8 +26,9 @@ namespace api {
 
 class UploadDataPipeGetter;
 
-class URLRequestNS : public mate::EventEmitter<URLRequestNS>,
-                     public network::SimpleURLLoaderStreamConsumer {
+class URLRequestNS
+    : public gin_helper::EventEmitter<mate::Wrappable<URLRequestNS>>,
+      public network::SimpleURLLoaderStreamConsumer {
  public:
   static mate::WrappableBase* New(gin::Arguments* args);
 
