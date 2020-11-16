@@ -1,6 +1,6 @@
-const { app, webContents } = require('electron')
-app.on('ready', function () {
-  webContents.create({})
+const { app, webContents } = require('electron');
+app.whenReady().then(function () {
+  webContents.create({});
 
-  process.nextTick(() => app.quit())
-})
+  app.quit();
+});

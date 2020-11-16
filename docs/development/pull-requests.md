@@ -35,7 +35,8 @@ $ git fetch upstream
 
 Build steps and dependencies differ slightly depending on your operating system.
 See these detailed guides on building Electron locally:
-* [Building on MacOS](https://electronjs.org/docs/development/build-instructions-macos)
+
+* [Building on macOS](https://electronjs.org/docs/development/build-instructions-macos)
 * [Building on Linux](https://electronjs.org/docs/development/build-instructions-linux)
 * [Building on Windows](https://electronjs.org/docs/development/build-instructions-windows)
 
@@ -55,7 +56,7 @@ $ git checkout -b my-branch -t upstream/master
 ### Step 4: Code
 
 Most pull requests opened against the `electron/electron` repository include
-changes to either the C/C++ code in the `atom/` folder,
+changes to either the C/C++ code in the `shell/` folder,
 the JavaScript code in the `lib/` folder, the documentation in `docs/api/`
 or tests in the `spec/` folder.
 
@@ -96,16 +97,16 @@ Examples of commit messages with semantic prefixes:
 
 Common prefixes:
 
-  - fix: A bug fix
-  - feat: A new feature
-  - docs: Documentation changes
-  - test: Adding missing tests or correcting existing tests
-  - build: Changes that affect the build system
-  - ci: Changes to our CI configuration files and scripts
-  - perf: A code change that improves performance
-  - refactor: A code change that neither fixes a bug nor adds a feature
-  - style: Changes that do not affect the meaning of the code (linting)
-  - vendor: Bumping a dependency like libchromiumcontent or node
+- fix: A bug fix
+- feat: A new feature
+- docs: Documentation changes
+- test: Adding missing tests or correcting existing tests
+- build: Changes that affect the build system
+- ci: Changes to our CI configuration files and scripts
+- perf: A code change that improves performance
+- refactor: A code change that neither fixes a bug nor adds a feature
+- style: Changes that do not affect the meaning of the code (linting)
+- vendor: Bumping a dependency like libchromiumcontent or node
 
 Other things to keep in mind when writing a commit message:
 
@@ -221,18 +222,19 @@ seem unfamiliar, refer to this
 
 #### Approval and Request Changes Workflow
 
-All pull requests require approval from a [Code Owner](https://github.com/orgs/electron/teams/code-owners) of the area you
-modified in order to land. Whenever a maintainer reviews a pull request they
-may request changes. These may be small, such as fixing a typo, or may involve
-substantive changes. Such requests are intended to be helpful, but at times
-may come across as abrupt or unhelpful, especially if they do not include
+All pull requests require approval from a
+[Code Owner](https://github.com/electron/electron/blob/master/.github/CODEOWNERS)
+of the area you modified in order to land. Whenever a maintainer reviews a pull
+request they may request changes. These may be small, such as fixing a typo, or
+may involve substantive changes. Such requests are intended to be helpful, but
+at times may come across as abrupt or unhelpful, especially if they do not include
 concrete suggestions on *how* to change them.
 
 Try not to be discouraged. If you feel that a review is unfair, say so or seek
 the input of another project contributor. Often such comments are the result of
 a reviewer having taken insufficient time to review and are not ill-intended.
 Such difficulties can often be resolved with a bit of patience. That said,
-reviewers should be expected to provide helpful feeback.
+reviewers should be expected to provide helpful feedback.
 
 ### Step 11: Landing
 
@@ -254,7 +256,5 @@ platforms or for so-called "flaky" tests to fail ("be red"). Each CI
 failure must be manually inspected to determine the cause.
 
 CI starts automatically when you open a pull request, but only
-[Releasers](https://github.com/orgs/electron/teams/releasers/members)
-can restart a CI run. If you believe CI is giving a false negative,
-ask a Releaser to restart the tests.
-
+core maintainers can restart a CI run. If you believe CI is giving a
+false negative, ask a maintainer to restart the tests.

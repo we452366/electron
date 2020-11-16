@@ -24,12 +24,27 @@ v8::Local<v8::Value> ConvertToV8(v8::Isolate* isolate, T&& input) {
 template <>
 struct Converter<unsigned long> {  // NOLINT(runtime/int)
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
-                                   unsigned long val);  // NOLINT(runtime/int)
+                                   unsigned long val) {  // NOLINT(runtime/int)
+    return v8::Integer::New(isolate, val);
+  }
   static bool FromV8(v8::Isolate* isolate,
                      v8::Local<v8::Value> val,
-                     unsigned long* out);  // NOLINT(runtime/int)
+                     unsigned long* out) {  // NOLINT(runtime/int)
+    auto maybe = val->IntegerValue(isolate->GetCurrentContext());
+    if (maybe.IsNothing())
+      return false;
+    *out = maybe.FromJust();
+    return true;
+  }
 };
 #endif
+
+template <>
+struct Converter<std::nullptr_t> {
+  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate, std::nullptr_t val) {
+    return v8::Null(isolate);
+  }
+};
 
 template <>
 struct Converter<const char*> {

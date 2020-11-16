@@ -6,7 +6,9 @@
 #define SHELL_COMMON_GIN_HELPER_DICTIONARY_H_
 
 #include <type_traits>
+#include <utility>
 
+#include "base/optional.h"
 #include "gin/dictionary.h"
 #include "shell/common/gin_converters/std_converter.h"
 #include "shell/common/gin_helper/function_template.h"
@@ -48,8 +50,6 @@ class Dictionary : public gin::Dictionary {
 
   // Differences from the Set method in gin::Dictionary:
   // 1. It accepts arbitrary type of key.
-  // 2. It forces using gin::ConvertFromV8 (would no longer be needed after
-  //    removing native_mate).
   template <typename K, typename V>
   bool Set(const K& key, const V& val) {
     v8::Local<v8::Value> v8_value;
@@ -59,6 +59,18 @@ class Dictionary : public gin::Dictionary {
         GetHandle()->Set(isolate()->GetCurrentContext(),
                          gin::ConvertToV8(isolate(), key), v8_value);
     return !result.IsNothing() && result.FromJust();
+  }
+
+  // Like normal Get but put result in an base::Optional.
+  template <typename T>
+  bool GetOptional(base::StringPiece key, base::Optional<T>* out) const {
+    T ret;
+    if (Get(key, &ret)) {
+      out->emplace(std::move(ret));
+      return true;
+    } else {
+      return false;
+    }
   }
 
   template <typename T>
@@ -105,6 +117,26 @@ class Dictionary : public gin::Dictionary {
     v8::Maybe<bool> result = GetHandle()->DefineOwnProperty(
         isolate()->GetCurrentContext(), gin::StringToV8(isolate(), key),
         v8_value, v8::ReadOnly);
+    return !result.IsNothing() && result.FromJust();
+  }
+
+  // Note: If we plan to add more Set methods, consider adding an option instead
+  // of copying code.
+  template <typename T>
+  bool SetReadOnlyNonConfigurable(base::StringPiece key, T val) {
+    v8::Local<v8::Value> v8_value;
+    if (!gin::TryConvertToV8(isolate(), val, &v8_value))
+      return false;
+    v8::Maybe<bool> result = GetHandle()->DefineOwnProperty(
+        isolate()->GetCurrentContext(), gin::StringToV8(isolate(), key),
+        v8_value,
+        static_cast<v8::PropertyAttribute>(v8::ReadOnly | v8::DontDelete));
+    return !result.IsNothing() && result.FromJust();
+  }
+
+  bool Has(base::StringPiece key) const {
+    v8::Maybe<bool> result = GetHandle()->Has(isolate()->GetCurrentContext(),
+                                              gin::StringToV8(isolate(), key));
     return !result.IsNothing() && result.FromJust();
   }
 

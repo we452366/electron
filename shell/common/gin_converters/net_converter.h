@@ -5,8 +5,12 @@
 #ifndef SHELL_COMMON_GIN_CONVERTERS_NET_CONVERTER_H_
 #define SHELL_COMMON_GIN_CONVERTERS_NET_CONVERTER_H_
 
-#include "base/memory/ref_counted.h"
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "gin/converter.h"
+#include "services/network/public/mojom/fetch_api.mojom.h"
 #include "shell/browser/net/cert_verifier_client.h"
 
 namespace base {
@@ -20,6 +24,7 @@ class URLRequest;
 class X509Certificate;
 class HttpResponseHeaders;
 struct CertPrincipal;
+class HttpVersion;
 }  // namespace net
 
 namespace network {
@@ -76,6 +81,16 @@ struct Converter<network::ResourceRequestBody> {
 };
 
 template <>
+struct Converter<scoped_refptr<network::ResourceRequestBody>> {
+  static v8::Local<v8::Value> ToV8(
+      v8::Isolate* isolate,
+      const scoped_refptr<network::ResourceRequestBody>& val);
+  static bool FromV8(v8::Isolate* isolate,
+                     v8::Local<v8::Value> val,
+                     scoped_refptr<network::ResourceRequestBody>* out);
+};
+
+template <>
 struct Converter<network::ResourceRequest> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    const network::ResourceRequest& val);
@@ -87,16 +102,47 @@ struct Converter<electron::VerifyRequestParams> {
                                    electron::VerifyRequestParams val);
 };
 
+template <>
+struct Converter<net::HttpVersion> {
+  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
+                                   const net::HttpVersion& val);
+};
+
+template <>
+struct Converter<net::RedirectInfo> {
+  static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
+                                   const net::RedirectInfo& val);
+};
+
+template <typename K, typename V>
+struct Converter<std::vector<std::pair<K, V>>> {
+  static bool FromV8(v8::Isolate* isolate,
+                     v8::Local<v8::Value> value,
+                     std::vector<std::pair<K, V>>* out) {
+    if (!value->IsObject())
+      return false;
+    out->clear();
+    v8::Local<v8::Context> context = isolate->GetCurrentContext();
+    v8::Local<v8::Object> obj = value.As<v8::Object>();
+    v8::Local<v8::Array> keys = obj->GetPropertyNames(context).ToLocalChecked();
+    for (uint32_t i = 0; i < keys->Length(); ++i) {
+      v8::Local<v8::Value> v8key;
+      if (!keys->Get(context, i).ToLocal(&v8key))
+        return false;
+      v8::Local<v8::Value> v8value;
+      if (!obj->Get(context, v8key).ToLocal(&v8value))
+        return false;
+      K key;
+      V value;
+      if (!ConvertFromV8(isolate, v8key, &key) ||
+          !ConvertFromV8(isolate, v8value, &value))
+        return false;
+      (*out).emplace_back(std::move(key), std::move(value));
+    }
+    return true;
+  }
+};
+
 }  // namespace gin
-
-namespace electron {
-
-void FillRequestDetails(base::DictionaryValue* details,
-                        const net::URLRequest* request);
-
-void GetUploadData(base::ListValue* upload_data_list,
-                   const net::URLRequest* request);
-
-}  // namespace electron
 
 #endif  // SHELL_COMMON_GIN_CONVERTERS_NET_CONVERTER_H_

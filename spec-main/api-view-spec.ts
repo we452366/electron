@@ -1,15 +1,15 @@
-import { closeWindow } from './window-helpers'
-import { TopLevelWindow, View } from 'electron'
+import { closeWindow } from './window-helpers';
+import { BaseWindow, View } from 'electron/main';
 
 describe('View', () => {
-  let w: TopLevelWindow
+  let w: BaseWindow;
   afterEach(async () => {
-    await closeWindow(w as any)
-    w = null as unknown as TopLevelWindow
-  })
+    await closeWindow(w as any);
+    w = null as unknown as BaseWindow;
+  });
 
   it('can be used as content view', () => {
-    w = new TopLevelWindow({ show: false })
-    w.setContentView(new View())
-  })
-})
+    w = new BaseWindow({ show: false });
+    w.setContentView(new View());
+  });
+});

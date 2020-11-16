@@ -3,12 +3,17 @@ From: Cheng Zhao <zcbenz@gmail.com>
 Date: Thu, 20 Sep 2018 17:47:12 -0700
 Subject: worker_context_will_destroy.patch
 
+This adds a hook for worker context destruction, which we use in Electron to
+shutdown node integration in the worker if relevant.
+
+An attempt to upstream this was made, but rejected:
+https://chromium-review.googlesource.com/c/chromium/src/+/1954347
 
 diff --git a/content/public/renderer/content_renderer_client.h b/content/public/renderer/content_renderer_client.h
-index 902bd023e6d2e26a5a89ed441651edd5f364f009..906920393c34043d19183064a2a4506c0a03e80d 100644
+index e9def973e93c0456afe8c2829b01b0592e87e45a..c311fd6e4094c56698575c492042644fc5bccf28 100644
 --- a/content/public/renderer/content_renderer_client.h
 +++ b/content/public/renderer/content_renderer_client.h
-@@ -383,6 +383,11 @@ class CONTENT_EXPORT ContentRendererClient {
+@@ -381,6 +381,11 @@ class CONTENT_EXPORT ContentRendererClient {
    virtual void DidInitializeWorkerContextOnWorkerThread(
        v8::Local<v8::Context> context) {}
  
@@ -21,10 +26,10 @@ index 902bd023e6d2e26a5a89ed441651edd5f364f009..906920393c34043d19183064a2a4506c
    // An empty URL is returned if the URL is not overriden.
    virtual GURL OverrideFlashEmbedWithHTML(const GURL& url);
 diff --git a/content/renderer/renderer_blink_platform_impl.cc b/content/renderer/renderer_blink_platform_impl.cc
-index 875a9079d0d5e97d04ca9870cb1d35dbe39fb24b..08cdba51792cbc73eb55ca7bb1d0ca1711ca97e8 100644
+index 1fa8724436170413c0256afb5d3a8bb154493083..3e3ca9c7b908044c27343d879d084c8a883132f2 100644
 --- a/content/renderer/renderer_blink_platform_impl.cc
 +++ b/content/renderer/renderer_blink_platform_impl.cc
-@@ -994,6 +994,12 @@ void RendererBlinkPlatformImpl::WillStopWorkerThread() {
+@@ -891,6 +891,12 @@ void RendererBlinkPlatformImpl::WillStopWorkerThread() {
    WorkerThreadRegistry::Instance()->WillStopCurrentWorkerThread();
  }
  
@@ -38,22 +43,22 @@ index 875a9079d0d5e97d04ca9870cb1d35dbe39fb24b..08cdba51792cbc73eb55ca7bb1d0ca17
      const v8::Local<v8::Context>& worker) {
    GetContentClient()->renderer()->DidInitializeWorkerContextOnWorkerThread(
 diff --git a/content/renderer/renderer_blink_platform_impl.h b/content/renderer/renderer_blink_platform_impl.h
-index b183977096477563043b288b33d90d3ce9fbd8de..87bd2530eb060c8e68a5a2ca090ce80cd63b942e 100644
+index 0bbe077c86a74e6fb3ce52969fad49a3319283e0..de42716cc1969e485a40cf59f735e48e1948443b 100644
 --- a/content/renderer/renderer_blink_platform_impl.h
 +++ b/content/renderer/renderer_blink_platform_impl.h
-@@ -200,6 +200,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
+@@ -191,6 +191,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
    void DidStartWorkerThread() override;
    void WillStopWorkerThread() override;
    void WorkerContextCreated(const v8::Local<v8::Context>& worker) override;
 +  void WorkerContextWillDestroy(const v8::Local<v8::Context>& worker) override;
-   bool IsExcludedHeaderForServiceWorkerFetchEvent(
-       const blink::WebString& header_name) override;
- 
+   bool AllowScriptExtensionForServiceWorker(
+       const blink::WebSecurityOrigin& script_origin) override;
+   blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel()
 diff --git a/third_party/blink/public/platform/platform.h b/third_party/blink/public/platform/platform.h
-index 83b3a264c0731acb567401ce64085560470a457f..70cab2fd7d3f5a30683ad2c8da7dcd453f939502 100644
+index 358f3c1d004c93096a78955e850f8dd0b473b0a8..5a9ae1626c22de04080ad8e6d613dd183632922e 100644
 --- a/third_party/blink/public/platform/platform.h
 +++ b/third_party/blink/public/platform/platform.h
-@@ -692,6 +692,7 @@ class BLINK_PLATFORM_EXPORT Platform {
+@@ -673,6 +673,7 @@ class BLINK_PLATFORM_EXPORT Platform {
    virtual void DidStartWorkerThread() {}
    virtual void WillStopWorkerThread() {}
    virtual void WorkerContextCreated(const v8::Local<v8::Context>& worker) {}
@@ -62,10 +67,10 @@ index 83b3a264c0731acb567401ce64085560470a457f..70cab2fd7d3f5a30683ad2c8da7dcd45
        const WebSecurityOrigin& script_origin) {
      return false;
 diff --git a/third_party/blink/renderer/core/workers/worker_thread.cc b/third_party/blink/renderer/core/workers/worker_thread.cc
-index d16b0ea72e4d0c0371bbb145c4f4c26b4d5c19e2..bd4af3ae2df62968aaf9001db8eda006a96d307b 100644
+index 4fc91c606d0cc954c08db087abfe3eb7371faea1..bdf96c40ba7b6aa44d0e504df6f422e53f3ecbb0 100644
 --- a/third_party/blink/renderer/core/workers/worker_thread.cc
 +++ b/third_party/blink/renderer/core/workers/worker_thread.cc
-@@ -680,6 +680,12 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
+@@ -739,6 +739,12 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
      nested_runner_->QuitNow();
    }
  

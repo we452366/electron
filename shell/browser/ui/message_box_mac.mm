@@ -12,6 +12,7 @@
 
 #include "base/callback.h"
 #include "base/mac/mac_util.h"
+#include "base/mac/scoped_nsobject.h"
 #include "base/strings/sys_string_conversions.h"
 #include "shell/browser/native_window.h"
 #include "skia/ext/skia_utils_mac.h"
@@ -59,9 +60,11 @@ NSAlert* CreateNSAlert(const MessageBoxSettings& settings) {
   int button_count = static_cast<int>([ns_buttons count]);
 
   if (settings.default_id >= 0 && settings.default_id < button_count) {
-    // Focus the button at default_id if the user opted to do so.
-    // The first button added gets set as the default selected.
-    // So remove that default, and make the requested button the default.
+    // Highlight the button at default_id
+    [[ns_buttons objectAtIndex:settings.default_id] highlight:YES];
+
+    // The first button added gets set as the default selected, so remove
+    // that and set the button @ default_id to be default.
     [[ns_buttons objectAtIndex:0] setKeyEquivalent:@""];
     [[ns_buttons objectAtIndex:settings.default_id] setKeyEquivalent:@"\r"];
   }
@@ -92,12 +95,14 @@ NSAlert* CreateNSAlert(const MessageBoxSettings& settings) {
 }  // namespace
 
 int ShowMessageBoxSync(const MessageBoxSettings& settings) {
-  NSAlert* alert = CreateNSAlert(settings);
+  base::scoped_nsobject<NSAlert> alert(CreateNSAlert(settings));
 
   // Use runModal for synchronous alert without parent, since we don't have a
-  // window to wait for.
-  if (!settings.parent_window)
-    return [[alert autorelease] runModal];
+  // window to wait for. Also use it when window is provided but it is not
+  // shown as it would be impossible to dismiss the alert if it is connected
+  // to invisible window (see #22671).
+  if (!settings.parent_window || !settings.parent_window->IsVisible())
+    return [alert runModal];
 
   __block int ret_code = -1;
 
@@ -136,6 +141,7 @@ void ShowMessageBox(const MessageBoxSettings& settings,
                   completionHandler:^(NSModalResponse response) {
                     std::move(callback_).Run(
                         response, alert.suppressionButton.state == NSOnState);
+                    [alert release];
                   }];
   }
 }

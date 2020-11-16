@@ -7,7 +7,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "shell/browser/atom_browser_context.h"
+#include "shell/browser/electron_browser_context.h"
 
 namespace electron {
 
@@ -45,27 +45,16 @@ content::WebContents* WebViewManager::GetEmbedder(int guest_instance_id) {
                                                       : iter->second.embedder;
 }
 
-content::WebContents* WebViewManager::GetGuestByInstanceID(
-    int owner_process_id,
-    int element_instance_id) {
-  const ElementInstanceKey key(owner_process_id, element_instance_id);
-  const auto guest_iter = element_instance_id_to_guest_map_.find(key);
-  if (guest_iter == std::end(element_instance_id_to_guest_map_))
-    return nullptr;
-
-  const int guest_instance_id = guest_iter->second;
-  const auto iter = web_contents_embedder_map_.find(guest_instance_id);
-  return iter == std::end(web_contents_embedder_map_)
-             ? nullptr
-             : iter->second.web_contents;
-}
-
 bool WebViewManager::ForEachGuest(content::WebContents* embedder_web_contents,
                                   const GuestCallback& callback) {
-  for (auto& item : web_contents_embedder_map_)
-    if (item.second.embedder == embedder_web_contents &&
-        callback.Run(item.second.web_contents))
+  for (auto& item : web_contents_embedder_map_) {
+    if (item.second.embedder != embedder_web_contents)
+      continue;
+
+    auto* guest_web_contents = item.second.web_contents;
+    if (guest_web_contents && callback.Run(guest_web_contents))
       return true;
+  }
   return false;
 }
 

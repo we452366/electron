@@ -10,14 +10,14 @@
 #include "base/callback.h"
 #include "base/files/file_path.h"
 #include "content/public/browser/web_contents.h"
-#include "shell/browser/atom_browser_context.h"
+#include "shell/browser/electron_browser_context.h"
 
 namespace electron {
 
 namespace api {
 
 SavePageHandler::SavePageHandler(content::WebContents* web_contents,
-                                 util::Promise<void*> promise)
+                                 gin_helper::Promise<void> promise)
     : web_contents_(web_contents), promise_(std::move(promise)) {}
 
 SavePageHandler::~SavePageHandler() = default;

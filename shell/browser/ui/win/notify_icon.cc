@@ -4,8 +4,10 @@
 
 #include "shell/browser/ui/win/notify_icon.h"
 
+#include <objbase.h>
 #include <utility>
 
+#include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/windows_version.h"
@@ -17,22 +19,21 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/menu/menu_runner.h"
-#include "ui/views/widget/widget.h"
 
 namespace {
 
 UINT ConvertIconType(electron::TrayIcon::IconType type) {
   using IconType = electron::TrayIcon::IconType;
   switch (type) {
-    case IconType::None:
+    case IconType::kNone:
       return NIIF_NONE;
-    case IconType::Info:
+    case IconType::kInfo:
       return NIIF_INFO;
-    case IconType::Warning:
+    case IconType::kWarning:
       return NIIF_WARNING;
-    case IconType::Error:
+    case IconType::kError:
       return NIIF_ERROR;
-    case IconType::Custom:
+    case IconType::kCustom:
       return NIIF_USER;
     default:
       NOTREACHED() << "Invalid icon type";
@@ -43,12 +44,14 @@ UINT ConvertIconType(electron::TrayIcon::IconType type) {
 
 namespace electron {
 
-NotifyIcon::NotifyIcon(NotifyIconHost* host, UINT id, HWND window, UINT message)
-    : host_(host),
-      icon_id_(id),
-      window_(window),
-      message_id_(message),
-      weak_factory_(this) {
+NotifyIcon::NotifyIcon(NotifyIconHost* host,
+                       UINT id,
+                       HWND window,
+                       UINT message,
+                       GUID guid)
+    : host_(host), icon_id_(id), window_(window), message_id_(message) {
+  guid_ = guid;
+  is_using_guid_ = guid != GUID_DEFAULT;
   NOTIFYICONDATA icon_data;
   InitIconData(&icon_data);
   icon_data.uFlags |= NIF_MESSAGE;
@@ -188,7 +191,7 @@ void NotifyIcon::Focus() {
 }
 
 void NotifyIcon::PopUpContextMenu(const gfx::Point& pos,
-                                  AtomMenuModel* menu_model) {
+                                  ElectronMenuModel* menu_model) {
   // Returns if context menu isn't set.
   if (menu_model == nullptr && menu_model_ == nullptr)
     return;
@@ -199,39 +202,28 @@ void NotifyIcon::PopUpContextMenu(const gfx::Point& pos,
     return;
 
   // Cancel current menu if there is one.
-  if (menu_runner_ && menu_runner_->IsRunning())
-    menu_runner_->Cancel();
+  CloseContextMenu();
 
   // Show menu at mouse's position by default.
   gfx::Rect rect(pos, gfx::Size());
   if (pos.IsOrigin())
     rect.set_origin(display::Screen::GetScreen()->GetCursorScreenPoint());
 
-  // Create a widget for the menu, otherwise we get no keyboard events, which
-  // is required for accessibility.
-  widget_.reset(new views::Widget());
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
-  params.ownership =
-      views::Widget::InitParams::Ownership::WIDGET_OWNS_NATIVE_WIDGET;
-  params.bounds = gfx::Rect(0, 0, 0, 0);
-  params.force_software_compositing = true;
-  params.z_order = ui::ZOrderLevel::kFloatingUIElement;
-
-  widget_->Init(std::move(params));
-
-  widget_->Show();
-  widget_->Activate();
-  menu_runner_.reset(new views::MenuRunner(
-      menu_model != nullptr ? menu_model : menu_model_,
-      views::MenuRunner::CONTEXT_MENU | views::MenuRunner::HAS_MNEMONICS,
-      base::BindRepeating(&NotifyIcon::OnContextMenuClosed,
-                          weak_factory_.GetWeakPtr())));
-  menu_runner_->RunMenuAt(widget_.get(), NULL, rect,
+  menu_runner_.reset(
+      new views::MenuRunner(menu_model != nullptr ? menu_model : menu_model_,
+                            views::MenuRunner::HAS_MNEMONICS));
+  menu_runner_->RunMenuAt(nullptr, nullptr, rect,
                           views::MenuAnchorPosition::kTopLeft,
                           ui::MENU_SOURCE_MOUSE);
 }
 
-void NotifyIcon::SetContextMenu(AtomMenuModel* menu_model) {
+void NotifyIcon::CloseContextMenu() {
+  if (menu_runner_ && menu_runner_->IsRunning()) {
+    menu_runner_->Cancel();
+  }
+}
+
+void NotifyIcon::SetContextMenu(ElectronMenuModel* menu_model) {
   menu_model_ = menu_model;
 }
 
@@ -241,6 +233,9 @@ gfx::Rect NotifyIcon::GetBounds() {
   icon_id.uID = icon_id_;
   icon_id.hWnd = window_;
   icon_id.cbSize = sizeof(NOTIFYICONIDENTIFIER);
+  if (is_using_guid_) {
+    icon_id.guidItem = guid_;
+  }
 
   RECT rect = {0};
   Shell_NotifyIconGetRect(&icon_id, &rect);
@@ -252,10 +247,10 @@ void NotifyIcon::InitIconData(NOTIFYICONDATA* icon_data) {
   icon_data->cbSize = sizeof(NOTIFYICONDATA);
   icon_data->hWnd = window_;
   icon_data->uID = icon_id_;
-}
-
-void NotifyIcon::OnContextMenuClosed() {
-  widget_->Close();
+  if (is_using_guid_) {
+    icon_data->uFlags = NIF_GUID;
+    icon_data->guidItem = guid_;
+  }
 }
 
 }  // namespace electron

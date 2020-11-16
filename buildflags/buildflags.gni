@@ -12,9 +12,9 @@ declare_args() {
 
   enable_remote_module = true
 
-  enable_view_api = false
+  enable_views_api = true
 
-  enable_pdf_viewer = false
+  enable_pdf_viewer = true
 
   enable_tts = true
 
@@ -28,9 +28,12 @@ declare_args() {
   # Should not be enabled for release build.
   enable_fake_location_provider = !is_official_build
 
-  # Enable flash plugin support.
-  enable_pepper_flash = true
-
   # Enable Chrome extensions support.
-  enable_electron_extensions = false
+  enable_electron_extensions = true
+
+  # Enable Spellchecker support
+  enable_builtin_spellchecker = true
+
+  # Undocumented Windows dark mode API
+  enable_win_dark_mode_window_ui = false
 }

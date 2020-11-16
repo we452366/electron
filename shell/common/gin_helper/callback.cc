@@ -37,7 +37,7 @@ v8::Persistent<v8::FunctionTemplate> g_call_translater;
 void CallTranslater(v8::Local<v8::External> external,
                     v8::Local<v8::Object> state,
                     gin::Arguments* args) {
-  // Whether the callback should only be called for once.
+  // Whether the callback should only be called once.
   v8::Isolate* isolate = args->isolate();
   auto context = isolate->GetCurrentContext();
   bool one_time =
@@ -47,7 +47,7 @@ void CallTranslater(v8::Local<v8::External> external,
   if (one_time) {
     auto called_symbol = gin::StringToSymbol(isolate, "called");
     if (state->Has(context, called_symbol).ToChecked()) {
-      args->ThrowTypeError("callback can only be called for once");
+      args->ThrowTypeError("One-time callback was called more than once");
       return;
     } else {
       state->Set(context, called_symbol, v8::Boolean::New(isolate, true))
@@ -55,7 +55,7 @@ void CallTranslater(v8::Local<v8::External> external,
     }
   }
 
-  TranslaterHolder* holder = static_cast<TranslaterHolder*>(external->Value());
+  auto* holder = static_cast<TranslaterHolder*>(external->Value());
   holder->translater.Run(args);
 
   // Free immediately for one-time callback.
@@ -69,7 +69,7 @@ void CallTranslater(v8::Local<v8::External> external,
 struct DeleteOnUIThread {
   template <typename T>
   static void Destruct(const T* x) {
-    if (mate::Locker::IsBrowserProcess() &&
+    if (gin_helper::Locker::IsBrowserProcess() &&
         !content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
       content::BrowserThread::DeleteSoon(content::BrowserThread::UI, FROM_HERE,
                                          x);

@@ -25,7 +25,7 @@ Follow the guidelines below for building Electron on Linux.
   Doing so permits installing Node on your own home directory as a standard user.
   Or try repositories such as [NodeSource](https://nodesource.com/blog/nodejs-v012-iojs-and-the-nodesource-linux-repositories).
 * [clang](https://clang.llvm.org/get_started.html) 3.4 or later.
-* Development headers of GTK+ and libnotify.
+* Development headers of GTK 3 and libnotify.
 
 On Ubuntu, install the following libraries:
 
@@ -79,7 +79,7 @@ And to cross-compile for `arm` or `ia32` targets, you should pass the
 `target_cpu` parameter to `gn gen`:
 
 ```sh
-$ gn gen out/Debug --args='import(...) target_cpu="arm"'
+$ gn gen out/Testing --args='import(...) target_cpu="arm"'
 ```
 
 ## Building
@@ -114,7 +114,7 @@ GN args.
 For example if you installed `clang` under `/usr/local/bin/clang`:
 
 ```sh
-$ gn gen out/Debug --args='import("//electron/build/args/debug.gn") clang_base_path = "/usr/local/bin"'
+$ gn gen out/Testing --args='import("//electron/build/args/testing.gn") clang_base_path = "/usr/local/bin"'
 ```
 
 ### Using compilers other than `clang`

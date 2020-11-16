@@ -5,28 +5,32 @@ gclient_gn_args = [
   'checkout_android_native_support',
   'checkout_libaom',
   'checkout_nacl',
+  'checkout_pgo_profiles',
   'checkout_oculus_sdk',
-  'checkout_openxr'
+  'checkout_openxr',
+  'checkout_google_benchmark',
+  'mac_xcode_version',
 ]
 
 vars = {
   'chromium_version':
-    'c3a0220e7bde049d599a8332b9b2785b0178be74',
+    '2935b18f375adc5df74b86afdff676989ced8cd3',
   'node_version':
-    'v12.13.0',
+    'v14.15.0',
   'nan_version':
-    '2ee313aaca52e2b478965ac50eb5082520380d1b',
+    '2c4ee8a32a299eada3cd6e468bbd0a473bfea96d',
+  'squirrel.mac_version':
+    'a3a5b3f03b824441c014893b18f99a103b2603e9',
 
-  'boto_version': 'f7574aa6cc2c819430c1f05e9a1a1a666ef8169b',
   'pyyaml_version': '3.12',
   'requests_version': 'e4d59bedfd3c7f4f254f4f5d036587bcd8152458',
 
-  'boto_git': 'https://github.com/boto',
   'chromium_git': 'https://chromium.googlesource.com',
   'electron_git': 'https://github.com/electron',
   'nodejs_git': 'https://github.com/nodejs',
   'requests_git': 'https://github.com/kennethreitz',
   'yaml_git': 'https://github.com/yaml',
+  'squirrel_git': 'https://github.com/Squirrel',
 
   # KEEP IN SYNC WITH utils.js FILE
   'yarn_version': '1.15.2',
@@ -34,19 +38,22 @@ vars = {
   # To be able to build clean Chromium from sources.
   'apply_patches': True,
 
-  # Python interface to Amazon Web Services. Is used for releases only.
-  'checkout_boto': False,
+  # To use an mtime cache for patched files to speed up builds.
+  'use_mtime_cache': True,
 
   # To allow in-house builds to checkout those manually.
   'checkout_chromium': True,
   'checkout_node': True,
   'checkout_nan': True,
+  'checkout_pgo_profiles': True,
 
   # It's only needed to parse the native tests configurations.
   'checkout_pyyaml': False,
 
   # Python "requests" module is used for releases only.
   'checkout_requests': False,
+
+  'mac_xcode_version': 'default',
 
   # To allow running hooks without parsing the DEPS tree
   'process_deps': True,
@@ -69,6 +76,10 @@ vars = {
     False,
   'checkout_android_native_support':
     False,
+  'checkout_google_benchmark':
+    False,
+  'checkout_clang_tidy':
+    True,
 }
 
 deps = {
@@ -88,15 +99,40 @@ deps = {
     'url': (Var("yaml_git")) + '/pyyaml.git@' + (Var("pyyaml_version")),
     'condition': 'checkout_pyyaml and process_deps',
   },
-  'src/electron/vendor/boto': {
-    'url': Var('boto_git') + '/boto.git' + '@' +  Var('boto_version'),
-    'condition': 'checkout_boto and process_deps',
-  },
   'src/electron/vendor/requests': {
     'url': Var('requests_git') + '/requests.git' + '@' +  Var('requests_version'),
     'condition': 'checkout_requests and process_deps',
   },
+  'src/third_party/squirrel.mac': {
+    'url': Var("squirrel_git") + '/Squirrel.Mac.git@' + Var("squirrel.mac_version"),
+    'condition': 'process_deps',
+  },
+  'src/third_party/squirrel.mac/vendor/ReactiveObjC': {
+    'url': 'https://github.com/ReactiveCocoa/ReactiveObjC.git@74ab5baccc6f7202c8ac69a8d1e152c29dc1ea76',
+    'condition': 'process_deps'
+  },
+  'src/third_party/squirrel.mac/vendor/Mantle': {
+    'url': 'https://github.com/Mantle/Mantle.git@78d3966b3c331292ea29ec38661b25df0a245948',
+    'condition': 'process_deps',
+  }
 }
+
+pre_deps_hooks = [
+  {
+    'name': 'generate_mtime_cache',
+    'condition': '(checkout_chromium and apply_patches and use_mtime_cache) and process_deps',
+    'pattern': 'src/electron',
+    'action': [
+      'python3',
+      'src/electron/script/patches-mtime-cache.py',
+      'generate',
+      '--cache-file',
+      'src/electron/patches/mtime-cache.json',
+      '--patches-config',
+      'src/electron/patches/config.json',
+    ],
+  },
+]
 
 hooks = [
   {
@@ -104,9 +140,21 @@ hooks = [
     'condition': '(checkout_chromium and apply_patches) and process_deps',
     'pattern': 'src/electron',
     'action': [
-      'python',
+      'python3',
       'src/electron/script/apply_all_patches.py',
       'src/electron/patches/config.json',
+    ],
+  },
+  {
+    'name': 'apply_mtime_cache',
+    'condition': '(checkout_chromium and apply_patches and use_mtime_cache) and process_deps',
+    'pattern': 'src/electron',
+    'action': [
+      'python3',
+      'src/electron/script/patches-mtime-cache.py',
+      'apply',
+      '--cache-file',
+      'src/electron/patches/mtime-cache.json',
     ],
   },
   {
@@ -114,7 +162,7 @@ hooks = [
     'pattern': 'src/electron/script/update-external-binaries.py',
     'condition': 'download_external_binaries',
     'action': [
-      'python',
+      'python3',
       'src/electron/script/update-external-binaries.py',
     ],
   },
@@ -122,19 +170,9 @@ hooks = [
     'name': 'electron_npm_deps',
     'pattern': 'src/electron/package.json',
     'action': [
-      'python',
+      'python3',
       '-c',
       'import os, subprocess; os.chdir(os.path.join("src", "electron")); subprocess.check_call(["python", "script/lib/npx.py", "yarn@' + (Var("yarn_version")) + '", "install", "--frozen-lockfile"]);',
-    ],
-  },
-  {
-    'name': 'setup_boto',
-    'pattern': 'src/electron',
-    'condition': 'checkout_boto and process_deps',
-    'action': [
-      'python',
-      '-c',
-      'import os, subprocess; os.chdir(os.path.join("src", "electron", "vendor", "boto")); subprocess.check_call(["python", "setup.py", "build"]);',
     ],
   },
   {
@@ -142,7 +180,7 @@ hooks = [
     'pattern': 'src/electron',
     'condition': 'checkout_requests and process_deps',
     'action': [
-      'python',
+      'python3',
       '-c',
       'import os, subprocess; os.chdir(os.path.join("src", "electron", "vendor", "requests")); subprocess.check_call(["python", "setup.py", "build"]);',
     ],
@@ -151,4 +189,5 @@ hooks = [
 
 recursedeps = [
   'src',
+  'src/third_party/squirrel.mac',
 ]

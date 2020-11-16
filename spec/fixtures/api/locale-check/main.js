@@ -1,10 +1,11 @@
-const { app } = require('electron')
+const { app } = require('electron');
 
-app.on('ready', () => {
-  process.stdout.write(app.getLocale())
-  process.stdout.end()
+const locale = process.argv[2].substr(11);
+app.commandLine.appendSwitch('lang', locale);
 
-  setImmediate(() => {
-    app.quit()
-  })
-})
+app.whenReady().then(() => {
+  process.stdout.write(app.getLocale());
+  process.stdout.end();
+
+  app.quit();
+});

@@ -1,19 +1,20 @@
-import { expect } from 'chai'
-import * as path from 'path'
-import { BrowserWindow, ipcMain } from 'electron'
-import { closeAllWindows } from './window-helpers'
+import { expect } from 'chai';
+import * as path from 'path';
+import { BrowserWindow, ipcMain } from 'electron/main';
+import { closeAllWindows } from './window-helpers';
+import { emittedOnce } from './events-helpers';
 
 describe('asar package', () => {
-  const fixtures = path.join(__dirname, '..', 'spec', 'fixtures')
-  const asarDir = path.join(fixtures, 'test.asar')
+  const fixtures = path.join(__dirname, '..', 'spec', 'fixtures');
+  const asarDir = path.join(fixtures, 'test.asar');
 
-  afterEach(closeAllWindows)
+  afterEach(closeAllWindows);
 
   describe('asar protocol', () => {
-    it('sets __dirname correctly', function (done) {
+    it('sets __dirname correctly', async function () {
       after(function () {
-        ipcMain.removeAllListeners('dirname')
-      })
+        ipcMain.removeAllListeners('dirname');
+      });
 
       const w = new BrowserWindow({
         show: false,
@@ -22,19 +23,18 @@ describe('asar package', () => {
         webPreferences: {
           nodeIntegration: true
         }
-      })
-      const p = path.resolve(asarDir, 'web.asar', 'index.html')
-      ipcMain.once('dirname', function (event, dirname) {
-        expect(dirname).to.equal(path.dirname(p))
-        done()
-      })
-      w.loadFile(p)
-    })
+      });
+      const p = path.resolve(asarDir, 'web.asar', 'index.html');
+      const dirnameEvent = emittedOnce(ipcMain, 'dirname');
+      w.loadFile(p);
+      const [, dirname] = await dirnameEvent;
+      expect(dirname).to.equal(path.dirname(p));
+    });
 
-    it('loads script tag in html', function (done) {
+    it('loads script tag in html', async function () {
       after(function () {
-        ipcMain.removeAllListeners('ping')
-      })
+        ipcMain.removeAllListeners('ping');
+      });
 
       const w = new BrowserWindow({
         show: false,
@@ -43,21 +43,20 @@ describe('asar package', () => {
         webPreferences: {
           nodeIntegration: true
         }
-      })
-      const p = path.resolve(asarDir, 'script.asar', 'index.html')
-      w.loadFile(p)
-      ipcMain.once('ping', function (event, message) {
-        expect(message).to.equal('pong')
-        done()
-      })
-    })
+      });
+      const p = path.resolve(asarDir, 'script.asar', 'index.html');
+      const ping = emittedOnce(ipcMain, 'ping');
+      w.loadFile(p);
+      const [, message] = await ping;
+      expect(message).to.equal('pong');
+    });
 
-    it('loads video tag in html', function (done) {
-      this.timeout(60000)
+    it('loads video tag in html', async function () {
+      this.timeout(60000);
 
       after(function () {
-        ipcMain.removeAllListeners('asar-video')
-      })
+        ipcMain.removeAllListeners('asar-video');
+      });
 
       const w = new BrowserWindow({
         show: false,
@@ -66,17 +65,15 @@ describe('asar package', () => {
         webPreferences: {
           nodeIntegration: true
         }
-      })
-      const p = path.resolve(asarDir, 'video.asar', 'index.html')
-      w.loadFile(p)
-      ipcMain.on('asar-video', function (event, message, error) {
-        if (message === 'ended') {
-          expect(error).to.be.null()
-          done()
-        } else if (message === 'error') {
-          done(error)
-        }
-      })
-    })
-  })
-})
+      });
+      const p = path.resolve(asarDir, 'video.asar', 'index.html');
+      w.loadFile(p);
+      const [, message, error] = await emittedOnce(ipcMain, 'asar-video');
+      if (message === 'ended') {
+        expect(error).to.be.null();
+      } else if (message === 'error') {
+        throw new Error(error);
+      }
+    });
+  });
+});

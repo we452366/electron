@@ -10,7 +10,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/network_context.mojom.h"
-#include "shell/browser/atom_browser_context.h"
+#include "shell/browser/electron_browser_context.h"
 
 namespace electron {
 
@@ -24,8 +24,10 @@ class NetworkContextService : public KeyedService {
   NetworkContextService(const NetworkContextService&) = delete;
   NetworkContextService& operator=(const NetworkContextService&) = delete;
 
-  // Creates a NetworkContext for the BrowserContext.
-  mojo::Remote<network::mojom::NetworkContext> CreateNetworkContext();
+  void ConfigureNetworkContextParams(
+      network::mojom::NetworkContextParams* network_context_params,
+      network::mojom::CertVerifierCreationParams*
+          cert_verifier_creation_params);
 
  private:
   // Creates parameters for the NetworkContext.
@@ -33,7 +35,7 @@ class NetworkContextService : public KeyedService {
       bool in_memory,
       const base::FilePath& path);
 
-  AtomBrowserContext* browser_context_;
+  ElectronBrowserContext* browser_context_;
   ProxyConfigMonitor proxy_config_monitor_;
 };
 

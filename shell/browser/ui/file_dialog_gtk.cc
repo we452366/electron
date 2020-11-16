@@ -5,17 +5,25 @@
 #include <memory>
 
 #include "shell/browser/ui/file_dialog.h"
-#include "shell/browser/ui/util_gtk.h"
+#include "shell/browser/ui/gtk_util.h"
 
 #include "base/callback.h"
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/ui/libgtkui/gtk_util.h"
+#include "shell/browser/javascript_environment.h"
 #include "shell/browser/native_window_views.h"
 #include "shell/browser/unresponsive_suppressor.h"
 #include "shell/common/gin_converters/file_path_converter.h"
 #include "ui/base/glib/glib_signal.h"
-#include "ui/views/widget/desktop_aura/x11_desktop_handler.h"
+#include "ui/gtk/gtk_util.h"
+
+#if defined(USE_X11)
+#include "ui/events/platform/x11/x11_event_source.h"
+#endif
+
+#if defined(USE_OZONE) || defined(USE_X11)
+#include "ui/base/ui_base_features.h"
+#endif
 
 namespace file_dialog {
 
@@ -54,16 +62,16 @@ class FileChooserDialog {
     if (!settings.button_label.empty())
       confirm_text = settings.button_label.c_str();
     else if (action == GTK_FILE_CHOOSER_ACTION_SAVE)
-      confirm_text = gtk_util::kOpenLabel;
-    else if (action == GTK_FILE_CHOOSER_ACTION_OPEN)
       confirm_text = gtk_util::kSaveLabel;
+    else if (action == GTK_FILE_CHOOSER_ACTION_OPEN)
+      confirm_text = gtk_util::kOpenLabel;
 
     dialog_ = gtk_file_chooser_dialog_new(
         settings.title.c_str(), nullptr, action, gtk_util::kCancelLabel,
         GTK_RESPONSE_CANCEL, confirm_text, GTK_RESPONSE_ACCEPT, NULL);
     if (parent_) {
       parent_->SetEnabled(false);
-      libgtkui::SetGtkTransientForAura(dialog_, parent_->GetNativeWindow());
+      gtk::SetGtkTransientForAura(dialog_, parent_->GetNativeWindow());
       gtk_window_set_modal(GTK_WINDOW(dialog_), TRUE);
     }
 
@@ -134,24 +142,29 @@ class FileChooserDialog {
                      this);
     gtk_widget_show_all(dialog_);
 
-    // We need to call gtk_window_present after making the widgets visible to
-    // make sure window gets correctly raised and gets focus.
-    int time = ui::X11EventSource::GetInstance()->GetTimestamp();
-    gtk_window_present_with_time(GTK_WINDOW(dialog_), time);
+#if defined(USE_X11)
+    if (!features::IsUsingOzonePlatform()) {
+      // We need to call gtk_window_present after making the widgets visible to
+      // make sure window gets correctly raised and gets focus.
+      x11::Time time = ui::X11EventSource::GetInstance()->GetTimestamp();
+      gtk_window_present_with_time(GTK_WINDOW(dialog_),
+                                   static_cast<uint32_t>(time));
+    }
+#endif
   }
 
   void RunSaveAsynchronous(
-      electron::util::Promise<gin_helper::Dictionary> promise) {
+      gin_helper::Promise<gin_helper::Dictionary> promise) {
     save_promise_ =
-        std::make_unique<electron::util::Promise<gin_helper::Dictionary>>(
+        std::make_unique<gin_helper::Promise<gin_helper::Dictionary>>(
             std::move(promise));
     RunAsynchronous();
   }
 
   void RunOpenAsynchronous(
-      electron::util::Promise<gin_helper::Dictionary> promise) {
+      gin_helper::Promise<gin_helper::Dictionary> promise) {
     open_promise_ =
-        std::make_unique<electron::util::Promise<gin_helper::Dictionary>>(
+        std::make_unique<gin_helper::Promise<gin_helper::Dictionary>>(
             std::move(promise));
     RunAsynchronous();
   }
@@ -193,10 +206,8 @@ class FileChooserDialog {
   GtkWidget* preview_;
 
   Filters filters_;
-  std::unique_ptr<electron::util::Promise<gin_helper::Dictionary>>
-      save_promise_;
-  std::unique_ptr<electron::util::Promise<gin_helper::Dictionary>>
-      open_promise_;
+  std::unique_ptr<gin_helper::Promise<gin_helper::Dictionary>> save_promise_;
+  std::unique_ptr<gin_helper::Promise<gin_helper::Dictionary>> open_promise_;
 
   // Callback for when we update the preview for the selection.
   CHROMEG_CALLBACK_0(FileChooserDialog, void, OnUpdatePreview, GtkWidget*);
@@ -206,6 +217,8 @@ class FileChooserDialog {
 
 void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
   gtk_widget_hide(dialog_);
+  v8::Isolate* isolate = electron::JavascriptEnvironment::GetIsolate();
+  v8::HandleScope scope(isolate);
   if (save_promise_) {
     gin_helper::Dictionary dict =
         gin::Dictionary::CreateEmpty(save_promise_->isolate());
@@ -216,7 +229,7 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       dict.Set("canceled", true);
       dict.Set("filePath", base::FilePath());
     }
-    save_promise_->ResolveWithGin(dict);
+    save_promise_->Resolve(dict);
   } else if (open_promise_) {
     gin_helper::Dictionary dict =
         gin::Dictionary::CreateEmpty(open_promise_->isolate());
@@ -227,7 +240,7 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       dict.Set("canceled", true);
       dict.Set("filePaths", std::vector<base::FilePath>());
     }
-    open_promise_->ResolveWithGin(dict);
+    open_promise_->Resolve(dict);
   }
   delete this;
 }
@@ -301,7 +314,7 @@ bool ShowOpenDialogSync(const DialogSettings& settings,
 }
 
 void ShowOpenDialog(const DialogSettings& settings,
-                    electron::util::Promise<gin_helper::Dictionary> promise) {
+                    gin_helper::Promise<gin_helper::Dictionary> promise) {
   GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
   if (settings.properties & OPEN_DIALOG_OPEN_DIRECTORY)
     action = GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
@@ -324,7 +337,7 @@ bool ShowSaveDialogSync(const DialogSettings& settings, base::FilePath* path) {
 }
 
 void ShowSaveDialog(const DialogSettings& settings,
-                    electron::util::Promise<gin_helper::Dictionary> promise) {
+                    gin_helper::Promise<gin_helper::Dictionary> promise) {
   FileChooserDialog* save_dialog =
       new FileChooserDialog(GTK_FILE_CHOOSER_ACTION_SAVE, settings);
   save_dialog->RunSaveAsynchronous(std::move(promise));

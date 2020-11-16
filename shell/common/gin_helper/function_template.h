@@ -5,12 +5,16 @@
 #ifndef SHELL_COMMON_GIN_HELPER_FUNCTION_TEMPLATE_H_
 #define SHELL_COMMON_GIN_HELPER_FUNCTION_TEMPLATE_H_
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/optional.h"
 #include "gin/arguments.h"
 #include "shell/common/gin_helper/arguments.h"
 #include "shell/common/gin_helper/destroyable.h"
 #include "shell/common/gin_helper/error_thrower.h"
+#include "shell/common/gin_helper/microtasks_scope.h"
 
 // This file is forked from gin/function_template.h with 2 differences:
 // 1. Support for additional types of arguments.
@@ -88,6 +92,20 @@ bool GetNextArgument(gin::Arguments* args,
   } else {
     return args->GetNext(result);
   }
+}
+
+// Support base::Optional as output, which would be empty and do not throw error
+// when convertion to T fails.
+template <typename T>
+bool GetNextArgument(gin::Arguments* args,
+                     int create_flags,
+                     bool is_first,
+                     base::Optional<T>* result) {
+  T converted;
+  // Use gin::Arguments::GetNext which always advances |next| counter.
+  if (args->GetNext(&converted))
+    result->emplace(std::move(converted));
+  return true;
 }
 
 // For advanced use cases, we allow callers to request the unparsed Arguments
@@ -197,18 +215,17 @@ class Invoker<IndicesHolder<indices...>, ArgTypes...>
 
   template <typename ReturnType>
   void DispatchToCallback(base::Callback<ReturnType(ArgTypes...)> callback) {
-    v8::MicrotasksScope script_scope(args_->isolate(),
-                                     v8::MicrotasksScope::kRunMicrotasks);
-    args_->Return(callback.Run(ArgumentHolder<indices, ArgTypes>::value...));
+    gin_helper::MicrotasksScope microtasks_scope(args_->isolate(), true);
+    args_->Return(
+        callback.Run(std::move(ArgumentHolder<indices, ArgTypes>::value)...));
   }
 
   // In C++, you can declare the function foo(void), but you can't pass a void
   // expression to foo. As a result, we must specialize the case of Callbacks
   // that have the void return type.
   void DispatchToCallback(base::Callback<void(ArgTypes...)> callback) {
-    v8::MicrotasksScope script_scope(args_->isolate(),
-                                     v8::MicrotasksScope::kRunMicrotasks);
-    callback.Run(ArgumentHolder<indices, ArgTypes>::value...);
+    gin_helper::MicrotasksScope microtasks_scope(args_->isolate(), true);
+    callback.Run(std::move(ArgumentHolder<indices, ArgTypes>::value)...);
   }
 
  private:

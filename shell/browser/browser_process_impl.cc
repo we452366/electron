@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/command_line.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/prefs/in_memory_pref_store.h"
 #include "components/prefs/overlay_user_pref_store.h"
@@ -17,11 +18,12 @@
 #include "components/proxy_config/pref_proxy_config_tracker_impl.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
+#include "content/public/browser/child_process_security_policy.h"
 #include "content/public/common/content_switches.h"
+#include "extensions/common/constants.h"
 #include "net/proxy_resolution/proxy_config.h"
 #include "net/proxy_resolution/proxy_config_service.h"
 #include "net/proxy_resolution/proxy_config_with_annotation.h"
-#include "net/proxy_resolution/proxy_resolution_service.h"
 #include "services/network/public/cpp/network_switches.h"
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -75,6 +77,11 @@ void BrowserProcessImpl::ApplyProxyModeFromCommandLine(
   }
 }
 
+BuildState* BrowserProcessImpl::GetBuildState() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
 void BrowserProcessImpl::PostEarlyInitialization() {
   // Mock user prefs, as we only need to track changes for a
   // in memory pref store. There are no persistent preferences
@@ -89,6 +96,10 @@ void BrowserProcessImpl::PostEarlyInitialization() {
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
+  // chrome-extension:// URLs are safe to request anywhere, but may only
+  // commit (including in iframes) in extension processes.
+  content::ChildProcessSecurityPolicy::GetInstance()
+      ->RegisterWebSafeIsolatedScheme(extensions::kExtensionScheme, true);
   // Must be created before the IOThread.
   // Once IOThread class is no longer needed,
   // this can be created on first use.
@@ -222,13 +233,13 @@ BrowserProcessImpl::safe_browsing_service() {
   return nullptr;
 }
 
-safe_browsing::ClientSideDetectionService*
-BrowserProcessImpl::safe_browsing_detection_service() {
+subresource_filter::RulesetService*
+BrowserProcessImpl::subresource_filter_ruleset_service() {
   return nullptr;
 }
 
-subresource_filter::RulesetService*
-BrowserProcessImpl::subresource_filter_ruleset_service() {
+federated_learning::FlocSortingLshClustersService*
+BrowserProcessImpl::floc_sorting_lsh_clusters_service() {
   return nullptr;
 }
 
@@ -265,11 +276,6 @@ BrowserProcessImpl::resource_coordinator_parts() {
 
 resource_coordinator::TabManager* BrowserProcessImpl::GetTabManager() {
   return nullptr;
-}
-
-shell_integration::DefaultWebClientState
-BrowserProcessImpl::CachedDefaultWebClientState() {
-  return shell_integration::UNKNOWN_DEFAULT;
 }
 
 void BrowserProcessImpl::SetApplicationLocale(const std::string& locale) {

@@ -30,7 +30,7 @@ import {
 import * as path from 'path'
 
 // Quick start
-// https://github.com/atom/electron/blob/master/docs/tutorial/quick-start.md
+// https://github.com/electron/electron/blob/master/docs/tutorial/quick-start.md
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the javascript object is GCed.
@@ -54,7 +54,7 @@ if (!gotLock) {
 
 // This method will be called when Electron has done everything
 // initialization and ready for creating browser windows.
-app.on('ready', () => {
+app.whenReady().then(() => {
   // Create the browser window.
   mainWindow = new BrowserWindow({ width: 800, height: 600 })
 
@@ -62,7 +62,7 @@ app.on('ready', () => {
   mainWindow.loadURL(`file://${__dirname}/index.html`)
   mainWindow.loadURL('file://foo/bar', { userAgent: 'cool-agent', httpReferrer: 'greateRefferer' })
   mainWindow.webContents.loadURL('file://foo/bar', { userAgent: 'cool-agent', httpReferrer: 'greateRefferer' })
-  mainWindow.webContents.loadURL('file://foo/bar', { userAgent: 'cool-agent', httpReferrer: 'greateRefferer', postData: [{ type: 'blob', blobUUID: 'hogefuga' }] })
+  mainWindow.webContents.loadURL('file://foo/bar', { userAgent: 'cool-agent', httpReferrer: 'greateRefferer', postData: [{ type: 'rawData', bytes: Buffer.from([123]) }] })
 
   mainWindow.webContents.openDevTools()
   mainWindow.webContents.toggleDevTools()
@@ -81,7 +81,6 @@ app.on('ready', () => {
   })
 
   mainWindow.webContents.setVisualZoomLevelLimits(50, 200)
-  mainWindow.webContents.setLayoutZoomLevelLimits(50, 200)
 
   mainWindow.webContents.print({ silent: true, printBackground: false })
   mainWindow.webContents.print()
@@ -148,7 +147,7 @@ app.on('ready', () => {
 
 app.commandLine.appendSwitch('enable-web-bluetooth')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   mainWindow.webContents.on('select-bluetooth-device', (event, deviceList, callback) => {
     event.preventDefault()
 
@@ -173,7 +172,7 @@ app.on('ready', () => {
 app.getLocale()
 
 // Desktop environment integration
-// https://github.com/atom/electron/blob/master/docs/tutorial/desktop-environment-integration.md
+// https://github.com/electron/electron/blob/master/docs/tutorial/desktop-environment-integration.md
 
 app.addRecentDocument('/Users/USERNAME/Desktop/work.type')
 app.clearRecentDocuments()
@@ -318,23 +317,12 @@ app.setAboutPanelOptions({
   version: '1.2.3'
 })
 
-let window = new BrowserWindow()
-window.setProgressBar(0.5)
-window.setRepresentedFilename('/etc/passwd')
-window.setDocumentEdited(true)
-window.previewFile('/path/to/file')
-window.previewFile('/path/to/file', 'Displayed Name')
-window.setVibrancy('menu')
-window.setVibrancy('titlebar')
-window.setVibrancy('selection')
-window.setVibrancy('popover')
-
 // Online/Offline Event Detection
-// https://github.com/atom/electron/blob/master/docs/tutorial/online-offline-events.md
+// https://github.com/electron/electron/blob/master/docs/tutorial/online-offline-events.md
 
 let onlineStatusWindow: Electron.BrowserWindow
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   onlineStatusWindow = new BrowserWindow({ width: 0, height: 0, show: false, vibrancy: 'sidebar' })
   onlineStatusWindow.loadURL(`file://${__dirname}/online-status.html`)
 })
@@ -345,9 +333,9 @@ ipcMain.on('online-status-changed', (event: any, status: any) => {
 })
 
 // Synopsis
-// https://github.com/atom/electron/blob/master/docs/api/synopsis.md
+// https://github.com/electron/electron/blob/master/docs/api/synopsis.md
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   window = new BrowserWindow({
     width: 800,
     height: 600,
@@ -357,7 +345,7 @@ app.on('ready', () => {
 })
 
 // Supported command line switches
-// https://github.com/atom/electron/blob/master/docs/api/command-line-switches.md
+// https://github.com/electron/electron/blob/master/docs/api/command-line-switches.md
 
 app.commandLine.appendSwitch('remote-debugging-port', '8315')
 app.commandLine.appendSwitch('host-rules', 'MAP * 127.0.0.1')
@@ -397,7 +385,7 @@ if (browserOptions.transparent) {
 }
 
 // app
-// https://github.com/atom/electron/blob/master/docs/api/app.md
+// https://github.com/electron/electron/blob/master/docs/api/app.md
 
 app.on('certificate-error', function (event, webContents, url, error, certificate, callback) {
   if (url === 'https://github.com') {
@@ -428,7 +416,7 @@ app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
 app.exit(0)
 
 // auto-updater
-// https://github.com/atom/electron/blob/master/docs/api/auto-updater.md
+// https://github.com/electron/electron/blob/master/docs/api/auto-updater.md
 
 autoUpdater.setFeedURL({
   url: 'http://mycompany.com/myapp/latest?version=' + app.getVersion(),
@@ -448,8 +436,8 @@ autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName, releaseDa
   console.log('update-downloaded', releaseNotes, releaseName, releaseDate, updateURL)
 })
 
-// browser-window
-// https://github.com/atom/electron/blob/master/docs/api/browser-window.md
+// BrowserWindow
+// https://github.com/electron/electron/blob/master/docs/api/browser-window.md
 
 let win3 = new BrowserWindow({ width: 800, height: 600, show: false })
 win3.on('closed', () => {
@@ -462,10 +450,22 @@ win3.show()
 const toolbarRect = document.getElementById('toolbar').getBoundingClientRect()
 win3.setSheetOffset(toolbarRect.height)
 
+let window = new BrowserWindow()
+window.setProgressBar(0.5)
+window.setRepresentedFilename('/etc/passwd')
+window.setDocumentEdited(true)
+window.previewFile('/path/to/file')
+window.previewFile('/path/to/file', 'Displayed Name')
+window.setVibrancy('menu')
+window.setVibrancy('titlebar')
+window.setVibrancy('selection')
+window.setVibrancy('popover')
+window.setIcon('/path/to/icon')
+
 const installed = BrowserWindow.getDevToolsExtensions().hasOwnProperty('devtron')
 
 // content-tracing
-// https://github.com/atom/electron/blob/master/docs/api/content-tracing.md
+// https://github.com/electron/electron/blob/master/docs/api/content-tracing.md
 
 const options = {
   categoryFilter: '*',
@@ -482,7 +482,7 @@ contentTracing.startRecording(options).then(() => {
 })
 
 // dialog
-// https://github.com/atom/electron/blob/master/docs/api/dialog.md
+// https://github.com/electron/electron/blob/master/docs/api/dialog.md
 
 // variant without browserWindow
 dialog.showOpenDialogSync({
@@ -503,7 +503,7 @@ dialog.showOpenDialog(win3, {
 })
 
 // global-shortcut
-// https://github.com/atom/electron/blob/master/docs/api/global-shortcut.md
+// https://github.com/electron/electron/blob/master/docs/api/global-shortcut.md
 
 // Register a 'ctrl+x' shortcut listener.
 const ret = globalShortcut.register('ctrl+x', () => {
@@ -521,7 +521,7 @@ globalShortcut.unregister('ctrl+x')
 globalShortcut.unregisterAll()
 
 // ipcMain
-// https://github.com/atom/electron/blob/master/docs/api/ipc-main-process.md
+// https://github.com/electron/electron/blob/master/docs/api/ipc-main-process.md
 
 ipcMain.on('asynchronous-message', (event, arg: any) => {
   console.log(arg) // prints "ping"
@@ -547,7 +547,7 @@ const winWindows = new BrowserWindow({
 })
 
 // menu-item
-// https://github.com/atom/electron/blob/master/docs/api/menu-item.md
+// https://github.com/electron/electron/blob/master/docs/api/menu-item.md
 
 const menuItem = new MenuItem({})
 
@@ -557,7 +557,7 @@ menuItem.click = (passedMenuItem: Electron.MenuItem, browserWindow: Electron.Bro
 }
 
 // menu
-// https://github.com/atom/electron/blob/master/docs/api/menu.md
+// https://github.com/electron/electron/blob/master/docs/api/menu.md
 
 let menu = new Menu()
 menu.append(new MenuItem({ label: 'MenuItem1', click: () => { console.log('item 1 clicked') } }))
@@ -737,7 +737,7 @@ const template = <Electron.MenuItemConstructorOptions[]> [
 
 menu = Menu.buildFromTemplate(template)
 
-Menu.setApplicationMenu(menu) // Must be called within app.on('ready', function(){ ... });
+Menu.setApplicationMenu(menu) // Must be called within app.whenReady().then(function(){ ... });
 
 Menu.buildFromTemplate([
   { label: '4', id: '4' },
@@ -807,7 +807,7 @@ Menu.buildFromTemplate([
 // net
 // https://github.com/electron/electron/blob/master/docs/api/net.md
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   const request = net.request('https://github.com')
   request.setHeader('Some-Custom-Header-Name', 'Some-Custom-Header-Value')
   const header = request.getHeader('Some-Custom-Header-Name')
@@ -850,9 +850,9 @@ app.on('ready', () => {
 })
 
 // power-monitor
-// https://github.com/atom/electron/blob/master/docs/api/power-monitor.md
+// https://github.com/electron/electron/blob/master/docs/api/power-monitor.md
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   powerMonitor.on('suspend', () => {
     console.log('The system is going to sleep')
   })
@@ -868,7 +868,7 @@ app.on('ready', () => {
 })
 
 // power-save-blocker
-// https://github.com/atom/electron/blob/master/docs/api/power-save-blocker.md
+// https://github.com/electron/electron/blob/master/docs/api/power-save-blocker.md
 
 const id = powerSaveBlocker.start('prevent-display-sleep')
 console.log(powerSaveBlocker.isStarted(id))
@@ -876,9 +876,9 @@ console.log(powerSaveBlocker.isStarted(id))
 powerSaveBlocker.stop(id)
 
 // protocol
-// https://github.com/atom/electron/blob/master/docs/api/protocol.md
+// https://github.com/electron/electron/blob/master/docs/api/protocol.md
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   protocol.registerSchemesAsPrivileged([{ scheme: 'https', privileges: { standard: true, allowServiceWorkers: true } }])
 
   protocol.registerFileProtocol('atom', (request, callback) => {
@@ -897,20 +897,16 @@ app.on('ready', () => {
     callback({ url: request.url, method: request.method })
   })
 
-  protocol.unregisterProtocol('atom', (error) => {
-    console.log(error ? error.message : 'ok')
-  })
+  protocol.unregisterProtocol('atom')
 
-  protocol.isProtocolHandled('atom').then(handled => {
-    console.log(handled)
-  })
+  const registered: boolean = protocol.isProtocolRegistered('atom')
 })
 
 // tray
-// https://github.com/atom/electron/blob/master/docs/api/tray.md
+// https://github.com/electron/electron/blob/master/docs/api/tray.md
 
 let appIcon: Electron.Tray = null
-app.on('ready', () => {
+app.whenReady().then(() => {
   appIcon = new Tray('/path/to/my/icon')
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Item1', type: 'radio' },
@@ -950,7 +946,7 @@ app.on('ready', () => {
 })
 
 // clipboard
-// https://github.com/atom/electron/blob/master/docs/api/clipboard.md
+// https://github.com/electron/electron/blob/master/docs/api/clipboard.md
 
 {
   let str: string
@@ -973,7 +969,7 @@ app.on('ready', () => {
 }
 
 // crash-reporter
-// https://github.com/atom/electron/blob/master/docs/api/crash-reporter.md
+// https://github.com/electron/electron/blob/master/docs/api/crash-reporter.md
 
 crashReporter.start({
   productName: 'YourName',
@@ -989,7 +985,7 @@ console.log(crashReporter.getLastCrashReport())
 console.log(crashReporter.getUploadedReports())
 
 // nativeImage
-// https://github.com/atom/electron/blob/master/docs/api/native-image.md
+// https://github.com/electron/electron/blob/master/docs/api/native-image.md
 
 const appIcon2 = new Tray('/Users/somebody/images/icon.png')
 const window2 = new BrowserWindow({ icon: '/Users/somebody/images/window.png' })
@@ -1014,14 +1010,14 @@ process.hang()
 process.setFdLimit(8192)
 
 // screen
-// https://github.com/atom/electron/blob/master/docs/api/screen.md
+// https://github.com/electron/electron/blob/master/docs/api/screen.md
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   const size = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({ width: size.width, height: size.height })
 })
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   const displays = screen.getAllDisplays()
   let externalDisplay: any = null
   for (const i in displays) {
@@ -1052,11 +1048,14 @@ app.on('ready', () => {
 })
 
 // shell
-// https://github.com/atom/electron/blob/master/docs/api/shell.md
+// https://github.com/electron/electron/blob/master/docs/api/shell.md
 
 shell.showItemInFolder('/home/user/Desktop/test.txt')
-shell.openItem('/home/user/Desktop/test.txt')
 shell.moveItemToTrash('/home/user/Desktop/test.txt')
+
+shell.openPath('/home/user/Desktop/test.txt').then(err => {
+  if (err) console.log(err)
+})
 
 shell.openExternal('https://github.com', {
   activate: false
@@ -1067,23 +1066,21 @@ shell.beep()
 shell.writeShortcutLink('/home/user/Desktop/shortcut.lnk', 'update', shell.readShortcutLink('/home/user/Desktop/shortcut.lnk'))
 
 // cookies
-// https://github.com/atom/electron/blob/master/docs/api/cookies.md
+// https://github.com/electron/electron/blob/master/docs/api/cookies.md
 {
-  const { session } = require('electron')
-
   // Query all cookies.
   session.defaultSession.cookies.get({})
-    .then((cookies) => {
+    .then(cookies => {
       console.log(cookies)
-    }).catch((error) => {
+    }).catch((error: Error) => {
       console.log(error)
     })
 
   // Query all cookies associated with a specific url.
   session.defaultSession.cookies.get({ url: 'http://www.github.com' })
-    .then((cookies) => {
+    .then(cookies => {
       console.log(cookies)
-    }).catch((error) => {
+    }).catch((error: Error) => {
       console.log(error)
     })
 
@@ -1093,13 +1090,13 @@ shell.writeShortcutLink('/home/user/Desktop/shortcut.lnk', 'update', shell.readS
   session.defaultSession.cookies.set(cookie)
     .then(() => {
       // success
-    }, (error) => {
+    }, (error: Error) => {
       console.error(error)
     })
 }
 
 // session
-// https://github.com/atom/electron/blob/master/docs/api/session.md
+// https://github.com/electron/electron/blob/master/docs/api/session.md
 
 session.defaultSession.on('will-download', (event, item, webContents) => {
   event.preventDefault()
@@ -1187,15 +1184,11 @@ session.defaultSession.webRequest.onBeforeSendHeaders(filter, function (details:
   callback({ cancel: false, requestHeaders: details.requestHeaders })
 })
 
-app.on('ready', function () {
+app.whenReady().then(function () {
   const protocol = session.defaultSession.protocol
   protocol.registerFileProtocol('atom', function (request, callback) {
     const url = request.url.substr(7)
     callback(path.normalize(__dirname + '/' + url))
-  }, function (error) {
-    if (error) {
-      console.error('Failed to register protocol')
-    }
   })
 })
 

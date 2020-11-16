@@ -9,15 +9,16 @@
 #include <vector>
 
 #include "base/observer_list.h"
-#include "shell/browser/ui/atom_menu_model.h"
+#include "shell/browser/ui/electron_menu_model.h"
 #include "shell/browser/ui/tray_icon_observer.h"
+#include "shell/common/gin_converters/guid_converter.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace electron {
 
 class TrayIcon {
  public:
-  static TrayIcon* Create();
+  static TrayIcon* Create(base::Optional<UUID> guid);
 
 #if defined(OS_WIN)
   using ImageType = HICON;
@@ -39,20 +40,25 @@ class TrayIcon {
   // status icon (e.g. Ubuntu Unity).
   virtual void SetToolTip(const std::string& tool_tip) = 0;
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   // Set/Get flag determining whether to ignore double click events.
   virtual void SetIgnoreDoubleClickEvents(bool ignore) = 0;
   virtual bool GetIgnoreDoubleClickEvents() = 0;
 
+  struct TitleOptions {
+    std::string font_type;
+  };
+
   // Set/Get title displayed next to status icon in the status bar.
-  virtual void SetTitle(const std::string& title) = 0;
+  virtual void SetTitle(const std::string& title,
+                        const TitleOptions& options) = 0;
   virtual std::string GetTitle() = 0;
 #endif
 
-  enum class IconType { None, Info, Warning, Error, Custom };
+  enum class IconType { kNone, kInfo, kWarning, kError, kCustom };
 
   struct BalloonOptions {
-    IconType icon_type = IconType::Custom;
+    IconType icon_type = IconType::kCustom;
 #if defined(OS_WIN)
     HICON icon = nullptr;
 #else
@@ -79,10 +85,12 @@ class TrayIcon {
 
   // Popups the menu.
   virtual void PopUpContextMenu(const gfx::Point& pos,
-                                AtomMenuModel* menu_model);
+                                ElectronMenuModel* menu_model);
+
+  virtual void CloseContextMenu();
 
   // Set the context menu for this icon.
-  virtual void SetContextMenu(AtomMenuModel* menu_model) = 0;
+  virtual void SetContextMenu(ElectronMenuModel* menu_model) = 0;
 
   // Returns the bounds of tray icon.
   virtual gfx::Rect GetBounds();
@@ -105,6 +113,10 @@ class TrayIcon {
   void NotifyDragEntered();
   void NotifyDragExited();
   void NotifyDragEnded();
+  void NotifyMouseUp(const gfx::Point& location = gfx::Point(),
+                     int modifiers = 0);
+  void NotifyMouseDown(const gfx::Point& location = gfx::Point(),
+                       int modifiers = 0);
   void NotifyMouseEntered(const gfx::Point& location = gfx::Point(),
                           int modifiers = 0);
   void NotifyMouseExited(const gfx::Point& location = gfx::Point(),

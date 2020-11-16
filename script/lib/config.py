@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import errno
 import os
-import platform
 import sys
 
 # URL to the mips64el sysroot image.
@@ -21,15 +19,27 @@ BASE_URL = os.getenv('LIBCHROMIUMCONTENT_MIRROR') or \
 PLATFORM = {
   'cygwin': 'win32',
   'darwin': 'darwin',
+  'linux': 'linux',
   'linux2': 'linux',
   'win32': 'win32',
 }[sys.platform]
+
+LINUX_BINARIES = [
+  'electron',
+  'chrome-sandbox',
+  'libffmpeg.so',
+  'libGLESv2.so',
+  'libEGL.so',
+  'swiftshader/libGLESv2.so',
+  'swiftshader/libEGL.so',
+  'libvk_swiftshader.so'
+]
 
 verbose_mode = False
 
 
 def get_platform_key():
-  if os.environ.has_key('MAS_BUILD'):
+  if 'MAS_BUILD' in os.environ:
     return 'mas'
   else:
     return PLATFORM

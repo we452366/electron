@@ -1,8 +1,3 @@
-import { EventEmitter } from 'events'
+const { nativeTheme } = process._linkedBinding('electron_common_native_theme');
 
-const { NativeTheme, nativeTheme } = process.electronBinding('native_theme')
-
-Object.setPrototypeOf(NativeTheme.prototype, EventEmitter.prototype)
-EventEmitter.call(nativeTheme as any)
-
-module.exports = nativeTheme
+module.exports = nativeTheme;

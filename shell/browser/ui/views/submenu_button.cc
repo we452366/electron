@@ -9,6 +9,7 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/text_utils.h"
@@ -20,11 +21,10 @@
 namespace electron {
 
 SubmenuButton::SubmenuButton(const base::string16& title,
-                             views::MenuButtonListener* menu_button_listener,
                              const SkColor& background_color)
     : views::MenuButton(
-          gfx::RemoveAcceleratorChar(title, '&', nullptr, nullptr),
-          menu_button_listener),
+          PressedCallback(),
+          gfx::RemoveAcceleratorChar(title, '&', nullptr, nullptr)),
       background_color_(background_color) {
 #if defined(OS_LINUX)
   // Dont' use native style border.
@@ -37,7 +37,7 @@ SubmenuButton::SubmenuButton(const base::string16& title,
                                &text_height_, 0, 0);
 
   SetInkDropMode(InkDropMode::ON);
-  set_ink_drop_base_color(
+  SetInkDropBaseColor(
       color_utils::BlendTowardMaxContrast(background_color_, 0x81));
 }
 
@@ -48,7 +48,7 @@ std::unique_ptr<views::InkDropRipple> SubmenuButton::CreateInkDropRipple()
   std::unique_ptr<views::InkDropRipple> ripple(
       new views::FloodFillInkDropRipple(
           size(), GetInkDropCenterBasedOnLastEvent(), GetInkDropBaseColor(),
-          ink_drop_visible_opacity()));
+          GetInkDropVisibleOpacity()));
   return ripple;
 }
 

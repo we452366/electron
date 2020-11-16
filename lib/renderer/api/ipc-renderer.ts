@@ -1,32 +1,36 @@
-const { ipc } = process.electronBinding('ipc')
-const v8Util = process.electronBinding('v8_util')
+import { EventEmitter } from 'events';
 
-// Created by init.js.
-const ipcRenderer = v8Util.getHiddenValue<Electron.IpcRenderer>(global, 'ipc')
-const internal = false
+const { ipc } = process._linkedBinding('electron_renderer_ipc');
 
+const internal = false;
+
+const ipcRenderer = new EventEmitter() as Electron.IpcRenderer;
 ipcRenderer.send = function (channel, ...args) {
-  return ipc.send(internal, channel, args)
-}
+  return ipc.send(internal, channel, args);
+};
 
 ipcRenderer.sendSync = function (channel, ...args) {
-  return ipc.sendSync(internal, channel, args)[0]
-}
+  return ipc.sendSync(internal, channel, args);
+};
 
 ipcRenderer.sendToHost = function (channel, ...args) {
-  return ipc.sendToHost(channel, args)
-}
+  return ipc.sendToHost(channel, args);
+};
 
 ipcRenderer.sendTo = function (webContentsId, channel, ...args) {
-  return ipc.sendTo(internal, false, webContentsId, channel, args)
-}
+  return ipc.sendTo(internal, false, webContentsId, channel, args);
+};
 
 ipcRenderer.invoke = async function (channel, ...args) {
-  const { error, result } = await ipc.invoke(internal, channel, args)
+  const { error, result } = await ipc.invoke(internal, channel, args);
   if (error) {
-    throw new Error(`Error invoking remote method '${channel}': ${error}`)
+    throw new Error(`Error invoking remote method '${channel}': ${error}`);
   }
-  return result
-}
+  return result;
+};
 
-export default ipcRenderer
+ipcRenderer.postMessage = function (channel: string, message: any, transferables: any) {
+  return ipc.postMessage(channel, message, transferables);
+};
+
+export default ipcRenderer;

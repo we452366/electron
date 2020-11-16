@@ -3,12 +3,9 @@
 from __future__ import print_function
 import atexit
 import contextlib
-import datetime
 import errno
 import json
 import os
-import platform
-import re
 import shutil
 import ssl
 import stat
@@ -16,22 +13,25 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import urllib2
+# Python 3 / 2 compat import
+try:
+  from urllib.request import urlopen
+except ImportError:
+  from urllib2 import urlopen
 import zipfile
 
-from lib.config import is_verbose_mode, PLATFORM
-from lib.env_util import get_vs_env
+from lib.config import is_verbose_mode
 
 ELECTRON_DIR = os.path.abspath(
   os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 )
+TS_NODE = os.path.join(ELECTRON_DIR, 'node_modules', '.bin', 'ts-node')
 SRC_DIR = os.path.abspath(os.path.join(__file__, '..', '..', '..', '..'))
-BOTO_DIR = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'vendor',
-                                        'boto'))
 
 NPM = 'npm'
 if sys.platform in ['win32', 'cygwin']:
   NPM += '.cmd'
+  TS_NODE += '.cmd'
 
 
 def tempdir(prefix=''):
@@ -69,8 +69,12 @@ def download(text, url, path):
       ssl._create_default_https_context = ssl._create_unverified_context
 
     print("Downloading %s to %s" % (url, path))
-    web_file = urllib2.urlopen(url)
-    file_size = int(web_file.info().getheaders("Content-Length")[0])
+    web_file = urlopen(url)
+    info = web_file.info()
+    if hasattr(info, 'getheader'):
+      file_size = int(info.getheaders("Content-Length")[0])
+    else:
+      file_size = int(info.get("Content-Length")[0])
     downloaded_size = 0
     block_size = 4096
 
@@ -112,10 +116,11 @@ def extract_zip(zip_path, destination):
 def make_zip(zip_file_path, files, dirs):
   safe_unlink(zip_file_path)
   if sys.platform == 'darwin':
-    files += dirs
-    execute(['zip', '-r', '-y', zip_file_path] + files)
+    allfiles = files + dirs
+    execute(['zip', '-r', '-y', zip_file_path] + allfiles)
   else:
-    zip_file = zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED)
+    zip_file = zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED,
+                               allowZip64=True)
     for filename in files:
       zip_file.write(filename, filename)
     for dirname in dirs:
@@ -190,33 +195,19 @@ def get_electron_version():
   with open(version_file) as f:
     return 'v' + f.read().strip()
 
-def boto_path_dirs():
-  return [
-    os.path.join(BOTO_DIR, 'build', 'lib'),
-    os.path.join(BOTO_DIR, 'build', 'lib.linux-x86_64-2.7')
-  ]
-
-
-def run_boto_script(access_key, secret_key, script_name, *args):
+def s3put(bucket, access_key, secret_key, prefix, key_prefix, files):
   env = os.environ.copy()
   env['AWS_ACCESS_KEY_ID'] = access_key
   env['AWS_SECRET_ACCESS_KEY'] = secret_key
-  env['PYTHONPATH'] = os.path.pathsep.join(
-      [env.get('PYTHONPATH', '')] + boto_path_dirs())
-
-  boto = os.path.join(BOTO_DIR, 'bin', script_name)
-  execute([sys.executable, boto] + list(args), env)
-
-
-def s3put(bucket, access_key, secret_key, prefix, key_prefix, files):
-  args = [
+  output = execute([
+    'node',
+    os.path.join(os.path.dirname(__file__), 's3put.js'),
     '--bucket', bucket,
     '--prefix', prefix,
     '--key_prefix', key_prefix,
-    '--grant', 'public-read'
-  ] + files
-
-  run_boto_script(access_key, secret_key, 's3put', *args)
+    '--grant', 'public-read',
+  ] + files, env)
+  print(output)
 
 
 def add_exec_bit(filename):
@@ -251,6 +242,7 @@ def get_buildtools_executable(name):
   buildtools = os.path.realpath(os.path.join(ELECTRON_DIR, '..', 'buildtools'))
   chromium_platform = {
     'darwin': 'mac',
+    'linux': 'linux64',
     'linux2': 'linux64',
     'win32': 'win',
   }[sys.platform]

@@ -1,45 +1,26 @@
-import { Buffer } from 'buffer'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as util from 'util'
+import { EventEmitter } from 'events';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const Module = require('module')
+const Module = require('module');
 
 // We modified the original process.argv to let node.js load the init.js,
 // we need to restore it here.
-process.argv.splice(1, 1)
+process.argv.splice(1, 1);
 
 // Clear search paths.
-require('../common/reset-search-paths')
+require('../common/reset-search-paths');
 
 // Import common settings.
-require('@electron/internal/common/init')
+require('@electron/internal/common/init');
 
-if (process.platform === 'win32') {
-  // Redirect node's console to use our own implementations, since node can not
-  // handle console output when running as GUI program.
-  const consoleLog = (format: any, ...args: any[]) => {
-    return process.log(util.format(format, ...args) + '\n')
-  }
-  const streamWrite: NodeJS.WritableStream['write'] = function (chunk: Buffer | string, encoding?: any, callback?: Function) {
-    if (Buffer.isBuffer(chunk)) {
-      chunk = chunk.toString(encoding)
-    }
-    process.log(chunk)
-    if (callback) {
-      callback()
-    }
-    return true
-  }
-  console.log = console.error = console.warn = consoleLog
-  process.stdout.write = process.stderr.write = streamWrite
-}
+process._linkedBinding('electron_browser_event_emitter').setEventEmitterPrototype(EventEmitter.prototype);
 
 // Don't quit on fatal error.
 process.on('uncaughtException', function (error) {
   // Do nothing if the user has a custom uncaught exception handler.
   if (process.listenerCount('uncaughtException') > 1) {
-    return
+    return;
   }
 
   // Show error in GUI.
@@ -48,18 +29,18 @@ process.on('uncaughtException', function (error) {
   // so we import it inside the handler down here
   import('electron')
     .then(({ dialog }) => {
-      const stack = error.stack ? error.stack : `${error.name}: ${error.message}`
-      const message = 'Uncaught Exception:\n' + stack
-      dialog.showErrorBox('A JavaScript error occurred in the main process', message)
-    })
-})
+      const stack = error.stack ? error.stack : `${error.name}: ${error.message}`;
+      const message = 'Uncaught Exception:\n' + stack;
+      dialog.showErrorBox('A JavaScript error occurred in the main process', message);
+    });
+});
 
 // Emit 'exit' event on quit.
-const { app } = require('electron')
+const { app } = require('electron');
 
-app.on('quit', function (event, exitCode) {
-  process.emit('exit', exitCode)
-})
+app.on('quit', (_event, exitCode) => {
+  process.emit('exit', exitCode);
+});
 
 if (process.platform === 'win32') {
   // If we are a Squirrel.Windows-installed app, set app user model ID
@@ -76,138 +57,138 @@ if (process.platform === 'win32') {
   // form `com.squirrel.PACKAGE-NAME.OUREXE`. We need to call
   // app.setAppUserModelId with a matching identifier so that renderer processes
   // will inherit this value.
-  const updateDotExe = path.join(path.dirname(process.execPath), '..', 'update.exe')
+  const updateDotExe = path.join(path.dirname(process.execPath), '..', 'update.exe');
 
   if (fs.existsSync(updateDotExe)) {
-    const packageDir = path.dirname(path.resolve(updateDotExe))
-    const packageName = path.basename(packageDir).replace(/\s/g, '')
-    const exeName = path.basename(process.execPath).replace(/\.exe$/i, '').replace(/\s/g, '')
+    const packageDir = path.dirname(path.resolve(updateDotExe));
+    const packageName = path.basename(packageDir).replace(/\s/g, '');
+    const exeName = path.basename(process.execPath).replace(/\.exe$/i, '').replace(/\s/g, '');
 
-    app.setAppUserModelId(`com.squirrel.${packageName}.${exeName}`)
+    app.setAppUserModelId(`com.squirrel.${packageName}.${exeName}`);
   }
 }
 
 // Map process.exit to app.exit, which quits gracefully.
-process.exit = app.exit as () => never
+process.exit = app.exit as () => never;
 
 // Load the RPC server.
-require('@electron/internal/browser/rpc-server')
+require('@electron/internal/browser/rpc-server');
 
 // Load the guest view manager.
-require('@electron/internal/browser/guest-view-manager')
-require('@electron/internal/browser/guest-window-manager')
+require('@electron/internal/browser/guest-view-manager');
+require('@electron/internal/browser/guest-window-proxy');
 
 // Now we try to load app's package.json.
-let packagePath = null
-let packageJson = null
-const searchPaths = ['app', 'app.asar', 'default_app.asar']
+let packagePath = null;
+let packageJson = null;
+const searchPaths = ['app', 'app.asar', 'default_app.asar'];
 
 if (process.resourcesPath) {
   for (packagePath of searchPaths) {
     try {
-      packagePath = path.join(process.resourcesPath, packagePath)
-      packageJson = Module._load(path.join(packagePath, 'package.json'))
-      break
+      packagePath = path.join(process.resourcesPath, packagePath);
+      packageJson = Module._load(path.join(packagePath, 'package.json'));
+      break;
     } catch {
-      continue
+      continue;
     }
   }
 }
 
 if (packageJson == null) {
   process.nextTick(function () {
-    return process.exit(1)
-  })
-  throw new Error('Unable to find a valid app')
+    return process.exit(1);
+  });
+  throw new Error('Unable to find a valid app');
 }
 
 // Set application's version.
 if (packageJson.version != null) {
-  app.setVersion(packageJson.version)
+  app.setVersion(packageJson.version);
 }
 
 // Set application's name.
 if (packageJson.productName != null) {
-  app.name = `${packageJson.productName}`.trim()
+  app.name = `${packageJson.productName}`.trim();
 } else if (packageJson.name != null) {
-  app.name = `${packageJson.name}`.trim()
+  app.name = `${packageJson.name}`.trim();
 }
 
 // Set application's desktop name.
 if (packageJson.desktopName != null) {
-  app.setDesktopName(packageJson.desktopName)
+  app.setDesktopName(packageJson.desktopName);
 } else {
-  app.setDesktopName(`${app.name}.desktop`)
+  app.setDesktopName(`${app.name}.desktop`);
 }
 
-// Set v8 flags, delibrately lazy load so that apps that do not use this
+// Set v8 flags, deliberately lazy load so that apps that do not use this
 // feature do not pay the price
 if (packageJson.v8Flags != null) {
-  require('v8').setFlagsFromString(packageJson.v8Flags)
+  require('v8').setFlagsFromString(packageJson.v8Flags);
 }
 
-app._setDefaultAppPaths(packagePath)
+app._setDefaultAppPaths(packagePath);
 
 // Load the chrome devtools support.
-require('@electron/internal/browser/devtools')
-
-const features = process.electronBinding('features')
+require('@electron/internal/browser/devtools');
 
 // Load the chrome extension support.
-if (!features.isExtensionsEnabled()) {
-  require('@electron/internal/browser/chrome-extension')
-}
+require('@electron/internal/browser/chrome-extension-shim');
 
-if (features.isRemoteModuleEnabled()) {
-  require('@electron/internal/browser/remote/server')
+if (BUILDFLAG(ENABLE_REMOTE_MODULE)) {
+  require('@electron/internal/browser/remote/server');
 }
 
 // Load protocol module to ensure it is populated on app ready
-require('@electron/internal/browser/api/protocol')
+require('@electron/internal/browser/api/protocol');
+
+// Load web-contents module to ensure it is populated on app ready
+require('@electron/internal/browser/api/web-contents');
 
 // Set main startup script of the app.
-const mainStartupScript = packageJson.main || 'index.js'
+const mainStartupScript = packageJson.main || 'index.js';
 
-const KNOWN_XDG_DESKTOP_VALUES = ['Pantheon', 'Unity:Unity7', 'pop:GNOME']
+const KNOWN_XDG_DESKTOP_VALUES = ['Pantheon', 'Unity:Unity7', 'pop:GNOME'];
 
 function currentPlatformSupportsAppIndicator () {
-  if (process.platform !== 'linux') return false
-  const currentDesktop = process.env.XDG_CURRENT_DESKTOP
+  if (process.platform !== 'linux') return false;
+  const currentDesktop = process.env.XDG_CURRENT_DESKTOP;
 
-  if (!currentDesktop) return false
-  if (KNOWN_XDG_DESKTOP_VALUES.includes(currentDesktop)) return true
+  if (!currentDesktop) return false;
+  if (KNOWN_XDG_DESKTOP_VALUES.includes(currentDesktop)) return true;
   // ubuntu based or derived session (default ubuntu one, communitheme…) supports
   // indicator too.
-  if (/ubuntu/ig.test(currentDesktop)) return true
+  if (/ubuntu/ig.test(currentDesktop)) return true;
 
-  return false
+  return false;
 }
 
 // Workaround for electron/electron#5050 and electron/electron#9046
+process.env.ORIGINAL_XDG_CURRENT_DESKTOP = process.env.XDG_CURRENT_DESKTOP;
 if (currentPlatformSupportsAppIndicator()) {
-  process.env.XDG_CURRENT_DESKTOP = 'Unity'
+  process.env.XDG_CURRENT_DESKTOP = 'Unity';
 }
 
 // Quit when all windows are closed and no other one is listening to this.
 app.on('window-all-closed', () => {
   if (app.listenerCount('window-all-closed') === 1) {
-    app.quit()
+    app.quit();
   }
-})
+});
 
-Promise.all([
-  import('@electron/internal/browser/default-menu'),
-  app.whenReady()
-]).then(([{ setDefaultApplicationMenu }]) => {
-  // Create default menu
-  setDefaultApplicationMenu()
-})
+const { setDefaultApplicationMenu } = require('@electron/internal/browser/default-menu');
+
+// Create default menu.
+//
+// The |will-finish-launching| event is emitted before |ready| event, so default
+// menu is set before any user window is created.
+app.once('will-finish-launching', setDefaultApplicationMenu);
 
 if (packagePath) {
   // Finally load app's main.js and transfer control to C++.
-  process._firstFileName = Module._resolveFilename(path.join(packagePath, mainStartupScript), null, false)
-  Module._load(path.join(packagePath, mainStartupScript), Module, true)
+  process._firstFileName = Module._resolveFilename(path.join(packagePath, mainStartupScript), null, false);
+  Module._load(path.join(packagePath, mainStartupScript), Module, true);
 } else {
-  console.error('Failed to locate a valid package to load (app, app.asar or default_app.asar)')
-  console.error('This normally means you\'ve damaged the Electron package somehow')
+  console.error('Failed to locate a valid package to load (app, app.asar or default_app.asar)');
+  console.error('This normally means you\'ve damaged the Electron package somehow');
 }

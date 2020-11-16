@@ -1,5 +1,3 @@
-const features = process.electronBinding('features')
-
 export const moduleList: ElectronInternal.ModuleEntry[] = [
   {
     name: 'contextBridge',
@@ -15,7 +13,7 @@ export const moduleList: ElectronInternal.ModuleEntry[] = [
   },
   {
     name: 'nativeImage',
-    loader: () => require('@electron/internal/common/api/native-image')
+    loader: () => require('@electron/internal/renderer/api/native-image')
   },
   {
     name: 'webFrame',
@@ -27,18 +25,18 @@ export const moduleList: ElectronInternal.ModuleEntry[] = [
     loader: () => require('@electron/internal/common/api/deprecate'),
     private: true
   }
-]
+];
 
-if (features.isDesktopCapturerEnabled()) {
+if (BUILDFLAG(ENABLE_DESKTOP_CAPTURER)) {
   moduleList.push({
     name: 'desktopCapturer',
     loader: () => require('@electron/internal/renderer/api/desktop-capturer')
-  })
+  });
 }
 
-if (features.isRemoteModuleEnabled() && process.isRemoteModuleEnabled) {
+if (BUILDFLAG(ENABLE_REMOTE_MODULE) && process.isRemoteModuleEnabled) {
   moduleList.push({
     name: 'remote',
     loader: () => require('@electron/internal/renderer/api/remote')
-  })
+  });
 }

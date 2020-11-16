@@ -62,10 +62,10 @@
 @end
 
 // Manages the PopUpButtonHandler.
-@interface AtomAccessoryView : NSView
+@interface ElectronAccessoryView : NSView
 @end
 
-@implementation AtomAccessoryView
+@implementation ElectronAccessoryView
 
 - (void)dealloc {
   auto* popupButton =
@@ -90,12 +90,22 @@ void SetAllowedFileTypes(NSSavePanel* dialog, const Filters& filters) {
 
   // Create array to keep file types and their name.
   for (const Filter& filter : filters) {
-    NSMutableSet* file_type_set = [NSMutableSet set];
+    NSMutableOrderedSet* file_type_set =
+        [NSMutableOrderedSet orderedSetWithCapacity:filters.size()];
     [filter_names addObject:@(filter.first.c_str())];
-    for (const std::string& ext : filter.second) {
+    for (std::string ext : filter.second) {
+      // macOS is incapable of understanding multiple file extensions,
+      // so we need to tokenize the extension that's been passed in.
+      // We want to err on the side of allowing files, so we pass
+      // along only the final extension ('tar.gz' => 'gz').
+      auto pos = ext.rfind('.');
+      if (pos != std::string::npos) {
+        ext.erase(0, pos + 1);
+      }
+
       [file_type_set addObject:@(ext.c_str())];
     }
-    [file_types_list addObject:[file_type_set allObjects]];
+    [file_types_list addObject:[file_type_set array]];
   }
 
   // Passing empty array to setAllowedFileTypes will cause exception.
@@ -114,8 +124,8 @@ void SetAllowedFileTypes(NSSavePanel* dialog, const Filters& filters) {
     return;  // don't add file format picker
 
   // Add file format picker.
-  AtomAccessoryView* accessoryView =
-      [[AtomAccessoryView alloc] initWithFrame:NSMakeRect(0.0, 0.0, 200, 32.0)];
+  ElectronAccessoryView* accessoryView = [[ElectronAccessoryView alloc]
+      initWithFrame:NSMakeRect(0.0, 0.0, 200, 32.0)];
   NSTextField* label =
       [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 60, 22)];
 
@@ -298,11 +308,11 @@ bool ShowOpenDialogSync(const DialogSettings& settings,
   return true;
 }
 
-void OpenDialogCompletion(
-    int chosen,
-    NSOpenPanel* dialog,
-    bool security_scoped_bookmarks,
-    electron::util::Promise<gin_helper::Dictionary> promise) {
+void OpenDialogCompletion(int chosen,
+                          NSOpenPanel* dialog,
+                          bool security_scoped_bookmarks,
+                          gin_helper::Promise<gin_helper::Dictionary> promise) {
+  v8::HandleScope scope(promise.isolate());
   gin_helper::Dictionary dict = gin::Dictionary::CreateEmpty(promise.isolate());
   if (chosen == NSFileHandlingPanelCancelButton) {
     dict.Set("canceled", true);
@@ -310,7 +320,7 @@ void OpenDialogCompletion(
 #if defined(MAS_BUILD)
     dict.Set("bookmarks", std::vector<std::string>());
 #endif
-    promise.ResolveWithGin(dict);
+    promise.Resolve(dict);
   } else {
     std::vector<base::FilePath> paths;
     dict.Set("canceled", false);
@@ -326,12 +336,12 @@ void OpenDialogCompletion(
     ReadDialogPaths(dialog, &paths);
     dict.Set("filePaths", paths);
 #endif
-    promise.ResolveWithGin(dict);
+    promise.Resolve(dict);
   }
 }
 
 void ShowOpenDialog(const DialogSettings& settings,
-                    electron::util::Promise<gin_helper::Dictionary> promise) {
+                    gin_helper::Promise<gin_helper::Dictionary> promise) {
   NSOpenPanel* dialog = [NSOpenPanel openPanel];
 
   SetupDialog(dialog, settings);
@@ -341,8 +351,7 @@ void ShowOpenDialog(const DialogSettings& settings,
   // and pass it to the completion handler.
   bool security_scoped_bookmarks = settings.security_scoped_bookmarks;
 
-  __block electron::util::Promise<gin_helper::Dictionary> p =
-      std::move(promise);
+  __block gin_helper::Promise<gin_helper::Dictionary> p = std::move(promise);
 
   if (!settings.parent_window || !settings.parent_window->GetNativeWindow() ||
       settings.force_detached) {
@@ -377,11 +386,11 @@ bool ShowSaveDialogSync(const DialogSettings& settings, base::FilePath* path) {
   return true;
 }
 
-void SaveDialogCompletion(
-    int chosen,
-    NSSavePanel* dialog,
-    bool security_scoped_bookmarks,
-    electron::util::Promise<gin_helper::Dictionary> promise) {
+void SaveDialogCompletion(int chosen,
+                          NSSavePanel* dialog,
+                          bool security_scoped_bookmarks,
+                          gin_helper::Promise<gin_helper::Dictionary> promise) {
+  v8::HandleScope scope(promise.isolate());
   gin_helper::Dictionary dict = gin::Dictionary::CreateEmpty(promise.isolate());
   if (chosen == NSFileHandlingPanelCancelButton) {
     dict.Set("canceled", true);
@@ -401,11 +410,11 @@ void SaveDialogCompletion(
     }
 #endif
   }
-  promise.ResolveWithGin(dict);
+  promise.Resolve(dict);
 }
 
 void ShowSaveDialog(const DialogSettings& settings,
-                    electron::util::Promise<gin_helper::Dictionary> promise) {
+                    gin_helper::Promise<gin_helper::Dictionary> promise) {
   NSSavePanel* dialog = [NSSavePanel savePanel];
 
   SetupDialog(dialog, settings);
@@ -416,8 +425,7 @@ void ShowSaveDialog(const DialogSettings& settings,
   // and pass it to the completion handler.
   bool security_scoped_bookmarks = settings.security_scoped_bookmarks;
 
-  __block electron::util::Promise<gin_helper::Dictionary> p =
-      std::move(promise);
+  __block gin_helper::Promise<gin_helper::Dictionary> p = std::move(promise);
 
   if (!settings.parent_window || !settings.parent_window->GetNativeWindow() ||
       settings.force_detached) {
